@@ -1,0 +1,11 @@
+config/*
+environments/*
+!*/.gitkeep
+automations.*
+!automations.example.json
+
+# OS generated files #
+######################
+.DS_Store*
+ehthumbs.db
+Thumbs.db

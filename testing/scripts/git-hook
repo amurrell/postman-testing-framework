@@ -1,0 +1,17 @@
+#!/bin/sh
+
+echo "*****Running postman tests******"
+
+CURRENT_DIR=$(pwd)
+
+printf "$CURRENT_DIR\n"
+
+cd testing
+
+./run-automations
+
+cd $CURRENT_DIR
+
+status=$?
+
+exit $status

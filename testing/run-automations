@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+CURRENT_DIR=$(pwd)
+
+# if string path ends in testing
+if [[ $CURRENT_DIR != *"testing"* ]]; then
+    echo "❌ This script must be run from the testing directory"
+    exit 1
+fi
+
+# if there is no automations.json file, exit
+if [ ! -f "automations.json" ]; then
+    echo "❌ No automations.json file found"
+    exit 1
+fi
+
+# Load JSON automations into bash variables
+AUTOMATIONS_FILE="automations.json"
+
+AUTOMATIONS_LENGTH="$(json=$(<${AUTOMATIONS_FILE}) node -pe "JSON.parse(process.env.json)['automations'].length")"
+
+printf "==== ‣ Number of Automations: $AUTOMATIONS_LENGTH\n"
+
+# for loop - where i is the index of the array and less than automations length, print
+for ((i=0; i<$AUTOMATIONS_LENGTH; i++)); do
+    AUTOMATION_NAME="$(json=$(<${AUTOMATIONS_FILE}) node -pe "JSON.parse(process.env.json)['automations'][$i]['name']")"
+    AUTOMATION_CMD="$(json=$(<${AUTOMATIONS_FILE}) node -pe "JSON.parse(process.env.json)['automations'][$i]['cmd']")"
+    printf "==== ‣ Running Automation: $AUTOMATION_NAME\n"
+    printf "==== ‣ Command: $AUTOMATION_CMD\n"
+
+    # Detect an exit code != 0 for failures - and exit right away
+    eval $AUTOMATION_CMD
+    status=$?
+    if [ $status -eq 0 ]; then
+        printf "==== ✅ Automation: $AUTOMATION_NAME - SUCCESS\n"
+    else
+        printf "==== ❌ Automation: $AUTOMATION_NAME - FAIL\n"
+        exit 1
+    fi
+done

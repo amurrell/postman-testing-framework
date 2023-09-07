@@ -1,0 +1,7 @@
+{
+    "postman_base_dir": "https://api.getpostman.com",
+    "postman_api_key": "POSTMAN_API_KEY",
+    "collection_uid": "COLLECTION_UID",
+    "folder_name": "FOLDER_NAME",
+    "environment": "ENVIRONMENT"
+}

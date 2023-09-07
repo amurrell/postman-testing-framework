@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+
+CURRENT_DIR=$(pwd)
+
+# if string path ends in testing
+if [[ $CURRENT_DIR != *"testing"* ]]; then
+    printf "========== ❌ This script must be run from the testing directory\n"
+    exit 1
+fi
+
+# get arguments passed to command
+while [[ $# > 0 ]]
+do
+key="$1"
+
+case $key in
+    -e|--env)
+    OVERRIDE_ENV="$2"
+    shift # past argument
+    ;;
+    -c|--config)
+    CONFIG="$2"
+    shift # past argument
+    ;;
+    -f|--folder)
+    OVERRIDE_FOLDER="$2"
+    shift # past argument
+    ;;
+    -h|--help)
+    cat <<EOF
+========= HELP =========
+
+Usage: ./run-tests [OPTIONS]
+
+Options:
+
+  -h, --help
+      Display this help message and exit.
+
+  -c, --config <name>
+      REQUIRED: Specify the name of your test collection. The <name> should follow the pattern [a-z-0-9]
+      and correspond to the top-level folder name + fork name of the test collection.
+      This option is required.
+
+  -e, --env <name>
+      OPTIONAL: Specify the name of the environment. Use this option to override the environment settings
+      defined in the configuration file.
+  
+  -f, --folder <name>
+      OPTIONAL: Specify a unique folder name within the collection. This option is used to target a specific
+      folder in the collection.
+  
+Examples:
+
+  ./run-tests -c <name>
+      Run tests related to the configuration file config/<name>.configuration.json.
+
+  ./run-tests -c <name> -e <environment>
+      Run tests with environment settings overridden by environments/<environment>.postman_environment.json.
+
+  ./run-tests -c <name> -f <folder>
+      Run tests specific to the (unique) folder named <folder> within the collection.
+
+==== Note: ====
+
+- Environment: If not specified, the environment comes from the config file.
+- Folder: If not specified, the folder comes from the config file.
+
+EOF
+    exit 0
+    shift # past argument
+    ;;
+    *)
+    # unknown option
+    ;;
+esac
+shift # past argument or value
+done
+
+# if -c is not passed, exit
+if [ -z "$CONFIG" ]; then
+    printf "========== ❌ Did you pass in the required config option? use ./run-tests -c <config>!\n"
+    exit 1;
+fi
+
+# Start the script - tell the user which config we are using
+printf "========== 🏁 Using Config: $CONFIG\n"
+
+# At the root level, use nvm - source it first
+printf "========== ⏳ Using nvm - based on .nvmrc - to install newman\n"
+. ~/.nvm/nvm.sh
+cd ../
+# if version of nvm is not installed, install it
+if ! nvm ls | grep -q "$(cat .nvmrc)"; then
+    printf "========== ⏳ Installing nvm version: $(cat .nvmrc)\n"
+    nvm install
+fi
+nvm use
+npm install -g newman
+
+cd $CURRENT_DIR
+
+# If OVERRIDE_CONFIG is set, use it
+if [ ! -z "$OVERRIDE_CONFIG" ]; then
+    printf "==== Setting the CONFIG to $OVERRIDE_CONFIG\n"
+    CONFIG=$OVERRIDE_CONFIG
+fi
+
+# If OVERRIDE_ENV is set, use it
+if [ ! -z "$OVERRIDE_ENV" ]; then
+    printf "==== Overriding the ENV to $OVERRIDE_ENV\n"
+    ENV=$OVERRIDE_ENV
+fi
+
+# If OVERRIDE_FOLDER is set, use it
+if [ ! -z "$OVERRIDE_FOLDER" ]; then
+    printf "==== Overriding the FOLDER to $OVERRIDE_FOLDER\n"
+    FOLDER=$OVERRIDE_FOLDER
+fi
+
+# Load JSON configuration into bash variables
+CONFIG_FILE="config/$CONFIG.configuration.json"
+
+if [ ! -f  "${CONFIG_FILE}" ]; then
+    printf "==== ❌ CONFIG FILE DOES NOT EXIST: $CONFIG_FILE\n"
+    exit 1;
+fi
+
+printf "==== Using Config File: $CONFIG_FILE\n"
+
+POSTMAN_BASE_DIR="$(json=$(<${CONFIG_FILE}) node -pe "JSON.parse(process.env.json)['postman_base_dir']")"
+POSTMAN_API_KEY="$(json=$(<${CONFIG_FILE}) node -pe "JSON.parse(process.env.json)['postman_api_key']")"
+COLLECTION_UID="$(json=$(<${CONFIG_FILE}) node -pe "JSON.parse(process.env.json)['collection_uid']")"
+FOLDER_NAME="$(json=$(<${CONFIG_FILE}) node -pe "JSON.parse(process.env.json)['folder_name']")"
+
+# If postman api key is empty, exit 1
+if [ -z "$POSTMAN_API_KEY" ]; then
+    printf "==== ❌ POSTMAN_API_KEY is empty\n"
+    exit 1;
+fi
+
+# If we do not have an override env, use the one from the file
+if [ -z "$OVERRIDE_ENV" ]; then
+    ENV="$(json=$(<${CONFIG_FILE}) node -pe "JSON.parse(process.env.json)['environment']")"
+fi
+
+ENV_FILE="environments/$ENV.postman_environment.json"
+
+if [ ! -f  "${ENV_FILE}" ]; then
+    printf "==== ❌ ENV FILE DOES NOT EXIST: $ENV_FILE\n"
+    exit 1;
+fi
+
+# If override folder is empty AND we have a folder name from the file, use it.
+if [ -z "$OVERRIDE_FOLDER" ] && [ ! -z "$FOLDER_NAME" ]; then
+    printf "==== Using $FOLDER_NAME from config file.\n"
+    FOLDER="$FOLDER_NAME"
+fi
+
+# printf "Base Dir: ${POSTMAN_BASE_DIR}\n"
+# printf "API Key: ${POSTMAN_API_KEY}\n"
+# printf "Collection UID: ${COLLECTION_UID}\n"
+# printf "Folder Name: ${FOLDER_NAME}\n"
+# printf "Folder: ${FOLDER}\n"
+# printf "Env: ${ENV}\n"
+
+printf "==== Using Environment File: $ENV_FILE\n"
+
+POSTMAN_COLLECTION_URL="${POSTMAN_BASE_DIR}/collections/${COLLECTION_UID}?apikey=${POSTMAN_API_KEY}"
+
+printf "==== Using Collection Url: $POSTMAN_COLLECTION_URL\n"
+
+if [ ! -z "$FOLDER" ]; then
+    printf "==== "
+    echo "🏁 Running Postman Collection Folder: $FOLDER" | sed -e "s/.*/"$'\e[32m'"&"$'\e[m'"/"
+    printf "\n"
+
+    ## Check if command exists
+    if ! command -v newman >/dev/null 2>&1; then
+        printf "==== ❌ Newman is not installed: install it: npm i -g newman\n"
+        exit 1;
+    fi
+
+    newman run ${POSTMAN_COLLECTION_URL} -e ${ENV_FILE} --folder "${FOLDER}"
+else
+    printf "==== ❌ NOT RUNNING TEST COLLECTION - MUST SPECIFY A FOLDER!\n"
+    exit 1;
+fi
