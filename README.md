@@ -43,8 +43,7 @@ Follow these tutorials:
     - [Run automations](#run-automationsjson-multiple-configurations)
 - [Git Hooks](#automation-with-git-hooks)
     - [Write scripts](#scriptsgit-hook)
-- [Coming soon - Writing Tests](#writing-tests)
-    - [Library - utils, funcs, etc](#libary-utils-funcs)
+- [PTS.JS Library and Test Setup](#ptsjs-library-and-test-setup)
 
 ---
 
@@ -242,20 +241,10 @@ Example-Postman-Testing
 
 ---
 
-## Writing Tests
+## PTS.JS Library and Test Setup
 
-You will find yourself repeating what you write in the tests, since each request can be so similar and test slightly different outputs. As a result, this repo will include a small library with room for you to grow your own utilities and functions for handling similarities in your tests.
+This repository includes the `pts.js` library to simplify your testing process. We recommend a structured approach for test organization, using pre-request scripts and folders. The ptf.js file is a flexible starting point, meant for customization.
 
-Coming in next PR!
-
-[↑ Contents](#get-started)
-
----
-
-### Libary Utils Funcs
-
-Coming soon!
-
-I will add a folder `library` for these things.
+For detailed documentation, refer to [library/docs.md](library/docs.md).
 
 [↑ Contents](#get-started)
